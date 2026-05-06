@@ -11,6 +11,11 @@ export type SettingsStore = {
   get(key: "settings"): Settings;
 };
 
+function normalizeNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
 export function normalizeSettings(stored: Partial<Settings> = {}): Settings {
   const customPetAppearance = normalizeCustomPetAppearance(stored.customPetAppearance);
   const petAppearanceId = resolvePetAppearanceId(stored.petAppearanceId ?? DEFAULT_SETTINGS.petAppearanceId);
@@ -23,7 +28,13 @@ export function normalizeSettings(stored: Partial<Settings> = {}): Settings {
       petAppearanceId === "custom" && !hasRequiredCustomPetAssets(customPetAppearance)
         ? DEFAULT_SETTINGS.petAppearanceId
         : petAppearanceId,
-    customPetAppearance
+    customPetAppearance,
+    breakRunDurationSeconds: normalizeNumber(
+      stored.breakRunDurationSeconds,
+      DEFAULT_SETTINGS.breakRunDurationSeconds,
+      10,
+      300
+    )
   };
 }
 

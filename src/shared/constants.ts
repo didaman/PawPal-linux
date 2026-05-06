@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checkUpdatesOnLaunchEnabled: false,
   breakReminderEnabled: true,
   breakIntervalMinutes: 45,
+  breakRunDurationSeconds: 60,
   hydrationReminderEnabled: true,
   hydrationIntervalMinutes: 90,
   focusDurationMinutes: 25,

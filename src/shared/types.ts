@@ -57,6 +57,7 @@ export type Settings = {
   checkUpdatesOnLaunchEnabled: boolean;
   breakReminderEnabled: boolean;
   breakIntervalMinutes: number;
+  breakRunDurationSeconds: number;
   hydrationReminderEnabled: boolean;
   hydrationIntervalMinutes: number;
   focusDurationMinutes: number;

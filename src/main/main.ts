@@ -37,7 +37,6 @@ import type {
 } from "../shared/types";
 import {
   APP_NAME,
-  BREAK_RUN_DURATION_MS,
   BREAK_RUN_TICK_MS,
   DISTRACTION_CHECK_INTERVAL_MS,
   DISTRACTION_WARNING_COOLDOWN_MS,
@@ -690,11 +689,12 @@ function startBreakRun(): void {
   nextBreakRunTurnAt = Date.now();
   setPetState("breakRunning");
   setPetFacing(breakRunVelocity.x >= 0 ? "right" : "left");
-  const endsAt = Date.now() + BREAK_RUN_DURATION_MS;
+  const durationMs = getSettings().breakRunDurationSeconds * 1000;
+  const endsAt = Date.now() + durationMs;
   showBreakRunCountdown(endsAt);
   breakRunCountdownTimer = setInterval(() => showBreakRunCountdown(endsAt), 1000);
   breakRunMovementTimer = setInterval(movePetForBreakRun, BREAK_RUN_TICK_MS);
-  breakRunTimer = setTimeout(finishBreakRun, BREAK_RUN_DURATION_MS);
+  breakRunTimer = setTimeout(finishBreakRun, durationMs);
   publishSnapshot();
 }
 

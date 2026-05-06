@@ -28,13 +28,26 @@ export const tests = [
         language: "en",
         petAppearanceId: "lovartPuppy",
         launchAtLoginEnabled: true,
-        checkUpdatesOnLaunchEnabled: true
+        checkUpdatesOnLaunchEnabled: true,
+        breakRunDurationSeconds: 90
       });
 
       assert.equal(settings.language, "en");
       assert.equal(settings.petAppearanceId, "lovartPuppy");
       assert.equal(settings.launchAtLoginEnabled, true);
       assert.equal(settings.checkUpdatesOnLaunchEnabled, true);
+      assert.equal(settings.breakRunDurationSeconds, 90);
+    }
+  },
+  {
+    name: "normalizeSettings clamps break run duration",
+    run(): void {
+      assert.equal(normalizeSettings({ breakRunDurationSeconds: 5 }).breakRunDurationSeconds, 10);
+      assert.equal(normalizeSettings({ breakRunDurationSeconds: 600 }).breakRunDurationSeconds, 300);
+      assert.equal(
+        normalizeSettings({ breakRunDurationSeconds: Number.NaN }).breakRunDurationSeconds,
+        DEFAULT_SETTINGS.breakRunDurationSeconds
+      );
     }
   },
   {

@@ -479,6 +479,18 @@ export function SettingsView(): JSX.Element {
           }
         />
         <Row
+          label={labels.breakRunDuration}
+          control={
+            <NumberControl
+              value={draft.breakRunDurationSeconds}
+              min={10}
+              max={300}
+              unit={labels.secondUnit}
+              onChange={(breakRunDurationSeconds) => updateDraft({ breakRunDurationSeconds })}
+            />
+          }
+        />
+        <Row
           label={labels.enableHydrationReminder}
           control={
             <ToggleControl
@@ -818,7 +830,21 @@ function CustomPetEditor({
   return (
     <div className="custom-pet">
       <div className="custom-pet__head">
-        <span className="pref-block__label">{labels.customPetAssets}</span>
+        <div className="custom-pet__title">
+          <span className="pref-block__label">{labels.customPetAssets}</span>
+          <span className="custom-pet__help">
+            <button
+              type="button"
+              className="custom-pet__help-button"
+              aria-label={labels.customPetRequirements}
+            >
+              ?
+            </button>
+            <span className="custom-pet__tooltip" role="tooltip">
+              {labels.customPetRequirements}
+            </span>
+          </span>
+        </div>
         <span className="custom-pet__status">
           {hasRequiredCustomPetAssets(customPetAppearance)
             ? labels.customPetReady
