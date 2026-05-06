@@ -1,8 +1,10 @@
-import { join, resolve, sep } from "node:path";
+import { basename, extname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { copyFile, mkdir } from "node:fs/promises";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeTheme,
@@ -18,9 +20,11 @@ import {
   DEFAULT_SETTINGS
 } from "../shared/constants";
 import { i18n, pick } from "../shared/i18n";
+import { PET_STATE_ORDER } from "../shared/petAppearances";
 import type {
   AppSnapshot,
   BlockingMode,
+  CustomPetAsset,
   DistractionStatus,
   DemoTrigger,
   PetFacing,
@@ -177,10 +181,51 @@ function updateStats(mutator: (stats: TodayStats) => TodayStats): void {
   sendToAll("stats:updated", next);
 }
 
+function isCustomPetState(state: unknown): state is PetState {
+  return typeof state === "string" && PET_STATE_ORDER.includes(state as PetState);
+}
+
+async function importCustomPetAsset(state: PetState, sourcePath: string): Promise<CustomPetAsset | null> {
+  if (!isCustomPetState(state) || typeof sourcePath !== "string") return null;
+  if (extname(sourcePath).toLowerCase() !== ".gif") return null;
+
+  const customRoot = join(app.getPath("userData"), "custom_pet_assets");
+  const stateDir = join(customRoot, state);
+  await mkdir(stateDir, { recursive: true });
+
+  const originalName = basename(sourcePath);
+  const safeName = originalName.replace(/[^a-zA-Z0-9._-]+/g, "-") || `${state}.gif`;
+  const fileName = `${state}-${Date.now()}-${safeName}`;
+  const targetPath = join(stateDir, fileName);
+  await copyFile(sourcePath, targetPath);
+
+  return {
+    relativePath: `custom_pet_assets/${state}/${fileName}`,
+    originalName,
+    updatedAt: Date.now()
+  };
+}
+
 function resetTodayStats(): void {
   breakMutedToday = false;
   const reset = resetCurrentStats(store);
   sendToAll("stats:updated", reset);
+}
+
+async function selectCustomPetAsset(state: PetState): Promise<CustomPetAsset | null> {
+  if (!isCustomPetState(state)) return null;
+
+  const options: Electron.OpenDialogOptions = {
+    properties: ["openFile"],
+    filters: [{ name: "GIF Images", extensions: ["gif"] }]
+  };
+  const result =
+    settingsWindow && !settingsWindow.isDestroyed()
+      ? await dialog.showOpenDialog(settingsWindow, options)
+      : await dialog.showOpenDialog(options);
+
+  if (result.canceled || !result.filePaths[0]) return null;
+  return importCustomPetAsset(state, result.filePaths[0]);
 }
 
 function snapshot(): AppSnapshot {
@@ -1023,6 +1068,12 @@ function handleBubbleAction(actionId: string): void {
 function registerIpc(): void {
   ipcMain.handle("app:get-snapshot", () => snapshot());
   ipcMain.handle("app:check-for-updates", () => checkForUpdates({ notifyAvailable: true }));
+  ipcMain.handle("custom-pet:select-asset", (_event, state: PetState) =>
+    selectCustomPetAsset(state)
+  );
+  ipcMain.handle("custom-pet:import-asset", (_event, state: PetState, sourcePath: string) =>
+    importCustomPetAsset(state, sourcePath)
+  );
   ipcMain.on("app:open-release-notes", openReleaseNotes);
   ipcMain.on("pet:clicked", () => {
     if (blockingMode) return;
@@ -1060,12 +1111,18 @@ app.whenReady().then(() => {
       return new Response("Invalid asset URL", { status: 404 });
     }
 
-    const base = app.isPackaged ? process.resourcesPath : process.cwd();
-    const assetRoot = resolve(base, "pet_assets");
-    const assetPath = resolve(base, relativePath);
-    const isInsideAssetRoot = assetPath === assetRoot || assetPath.startsWith(`${assetRoot}${sep}`);
+    const appBase = app.isPackaged ? process.resourcesPath : process.cwd();
+    const builtInAssetRoot = resolve(appBase, "pet_assets");
+    const customAssetRoot = resolve(app.getPath("userData"), "custom_pet_assets");
+    const assetPath = relativePath.startsWith("custom_pet_assets/")
+      ? resolve(app.getPath("userData"), relativePath)
+      : resolve(appBase, relativePath);
+    const isInsideBuiltInAssetRoot =
+      assetPath === builtInAssetRoot || assetPath.startsWith(`${builtInAssetRoot}${sep}`);
+    const isInsideCustomAssetRoot =
+      assetPath === customAssetRoot || assetPath.startsWith(`${customAssetRoot}${sep}`);
 
-    if (!isInsideAssetRoot) {
+    if (!isInsideBuiltInAssetRoot && !isInsideCustomAssetRoot) {
       return new Response("Asset not found", { status: 404 });
     }
 

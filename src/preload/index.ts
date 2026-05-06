@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AppSnapshot,
+  CustomPetAsset,
   DemoTrigger,
   PetState,
   Settings,
@@ -21,6 +22,11 @@ const api = {
   getSnapshot: (): Promise<AppSnapshot> => ipcRenderer.invoke("app:get-snapshot"),
   openReleaseNotes: (): void => ipcRenderer.send("app:open-release-notes"),
   checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke("app:check-for-updates"),
+  selectCustomPetAsset: (state: PetState): Promise<CustomPetAsset | null> =>
+    ipcRenderer.invoke("custom-pet:select-asset", state),
+  importCustomPetAsset: (state: PetState, sourcePath: string): Promise<CustomPetAsset | null> =>
+    ipcRenderer.invoke("custom-pet:import-asset", state, sourcePath),
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
   petClicked: (): void => ipcRenderer.send("pet:clicked"),
   petContextMenu: (): void => ipcRenderer.send("pet:context-menu"),
   petDragStart: (offset: { offsetX: number; offsetY: number }): void =>

@@ -1,4 +1,11 @@
-import type { Language, PetAppearanceId, PetState } from "./types";
+import type {
+  BuiltInPetAppearanceId,
+  CustomPetAppearance,
+  CustomPetAsset,
+  Language,
+  PetAppearanceId,
+  PetState
+} from "./types";
 
 export type PetAssetDefinition = {
   path: string | string[];
@@ -7,11 +14,30 @@ export type PetAssetDefinition = {
 };
 
 export type PetAppearanceManifest = {
-  id: PetAppearanceId;
+  id: BuiltInPetAppearanceId;
   label: Record<Language, string>;
   fallback: PetAssetDefinition;
   states: Partial<Record<PetState, PetAssetDefinition>>;
 };
+
+export const PET_STATE_ORDER: PetState[] = [
+  "idle",
+  "sitting",
+  "happy",
+  "breakPrompt",
+  "breakRunning",
+  "breakDone",
+  "hydrationPrompt",
+  "drinking",
+  "hydrationDone",
+  "focusGuard",
+  "focusAlert",
+  "focusDone",
+  "sad",
+  "sleeping"
+];
+
+export const REQUIRED_CUSTOM_PET_STATES: PetState[] = ["idle"];
 
 const goldenPuppy = (state: PetState, name: string): string =>
   `pet_assets/金毛 puppy/${state}/${name}`;
@@ -24,7 +50,7 @@ const STATE_FALLBACKS: Partial<Record<PetState, PetState>> = {
   focusDone: "happy"
 };
 
-export const PET_APPEARANCES: Record<PetAppearanceId, PetAppearanceManifest> = {
+export const PET_APPEARANCES: Record<BuiltInPetAppearanceId, PetAppearanceManifest> = {
   lovartPuppy: {
     id: "lovartPuppy",
     label: {
@@ -260,22 +286,97 @@ export const PET_APPEARANCES: Record<PetAppearanceId, PetAppearanceManifest> = {
 };
 
 export function resolvePetAppearanceId(value: unknown): PetAppearanceId {
+  if (value === "lineDog" || value === "lovartPuppy" || value === "xiaoJiMao" || value === "custom") {
+    return value;
+  }
+  return "lineDog";
+}
+
+export function resolveBuiltInPetAppearanceId(value: unknown): BuiltInPetAppearanceId {
   if (value === "lineDog" || value === "lovartPuppy" || value === "xiaoJiMao") return value;
   return "lineDog";
 }
 
-export function petAppearanceOptions(language: Language): Array<{ value: PetAppearanceId; label: string }> {
+function isPetState(value: string): value is PetState {
+  return PET_STATE_ORDER.includes(value as PetState);
+}
+
+function normalizeCustomAsset(value: unknown): CustomPetAsset | null {
+  if (!value || typeof value !== "object") return null;
+  const asset = value as Partial<CustomPetAsset>;
+  if (
+    typeof asset.relativePath !== "string" ||
+    !asset.relativePath.startsWith("custom_pet_assets/") ||
+    !asset.relativePath.toLowerCase().endsWith(".gif")
+  ) {
+    return null;
+  }
+
+  return {
+    relativePath: asset.relativePath,
+    originalName: typeof asset.originalName === "string" ? asset.originalName : "custom.gif",
+    updatedAt: typeof asset.updatedAt === "number" ? asset.updatedAt : Date.now()
+  };
+}
+
+export function normalizeCustomPetAppearance(value: unknown): CustomPetAppearance | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<CustomPetAppearance>;
+  const sourceAssets =
+    source.assets && typeof source.assets === "object"
+      ? (source.assets as Record<string, unknown>)
+      : {};
+  const assets: Partial<Record<PetState, CustomPetAsset>> = {};
+
+  for (const [state, asset] of Object.entries(sourceAssets)) {
+    if (!isPetState(state)) continue;
+    const normalized = normalizeCustomAsset(asset);
+    if (normalized) assets[state] = normalized;
+  }
+
+  if (Object.keys(assets).length === 0) return null;
+
+  return {
+    name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : "Custom Pet",
+    assets
+  };
+}
+
+export function hasRequiredCustomPetAssets(custom: CustomPetAppearance | null | undefined): boolean {
+  return Boolean(custom && REQUIRED_CUSTOM_PET_STATES.every((state) => custom.assets[state]));
+}
+
+export function petAppearanceOptions(language: Language): Array<{ value: BuiltInPetAppearanceId; label: string }> {
   return Object.values(PET_APPEARANCES).map((appearance) => ({
     value: appearance.id,
     label: appearance.label[language]
   }));
 }
 
+export function getCustomPetAssetDefinition(
+  custom: CustomPetAppearance | null | undefined,
+  state: PetState
+): PetAssetDefinition | null {
+  if (!custom || !hasRequiredCustomPetAssets(custom)) return null;
+  const fallbackState = STATE_FALLBACKS[state];
+  const asset =
+    custom.assets[state] ??
+    (fallbackState ? custom.assets[fallbackState] : undefined) ??
+    custom.assets.idle;
+  return asset ? { path: asset.relativePath, isPlaceholder: asset.relativePath !== custom.assets[state]?.relativePath } : null;
+}
+
 export function getPetAssetDefinition(
   appearanceId: PetAppearanceId,
-  state: PetState
+  state: PetState,
+  custom?: CustomPetAppearance | null
 ): PetAssetDefinition {
-  const appearance = PET_APPEARANCES[appearanceId];
+  if (appearanceId === "custom") {
+    const customAsset = getCustomPetAssetDefinition(custom, state);
+    if (customAsset) return customAsset;
+  }
+
+  const appearance = PET_APPEARANCES[resolveBuiltInPetAppearanceId(appearanceId)];
   const fallbackState = STATE_FALLBACKS[state];
   return (
     appearance.states[state] ??

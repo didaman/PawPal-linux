@@ -36,5 +36,46 @@ export const tests = [
       assert.equal(settings.launchAtLoginEnabled, true);
       assert.equal(settings.checkUpdatesOnLaunchEnabled, true);
     }
+  },
+  {
+    name: "normalizeSettings preserves valid custom pet settings",
+    run(): void {
+      const settings = normalizeSettings({
+        petAppearanceId: "custom",
+        customPetAppearance: {
+          name: "My Pet",
+          assets: {
+            idle: {
+              relativePath: "custom_pet_assets/idle/my-pet.gif",
+              originalName: "my-pet.gif",
+              updatedAt: 1
+            }
+          }
+        }
+      });
+
+      assert.equal(settings.petAppearanceId, "custom");
+      assert.equal(settings.customPetAppearance?.assets.idle?.relativePath, "custom_pet_assets/idle/my-pet.gif");
+    }
+  },
+  {
+    name: "normalizeSettings falls back from custom pet when required assets are missing",
+    run(): void {
+      const settings = normalizeSettings({
+        petAppearanceId: "custom",
+        customPetAppearance: {
+          name: "My Pet",
+          assets: {
+            happy: {
+              relativePath: "custom_pet_assets/happy/my-pet.gif",
+              originalName: "my-pet.gif",
+              updatedAt: 1
+            }
+          }
+        }
+      });
+
+      assert.equal(settings.petAppearanceId, DEFAULT_SETTINGS.petAppearanceId);
+    }
   }
 ];

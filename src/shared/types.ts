@@ -1,6 +1,8 @@
 export type Language = "zh-CN" | "en";
 
-export type PetAppearanceId = "lovartPuppy" | "lineDog" | "xiaoJiMao";
+export type BuiltInPetAppearanceId = "lovartPuppy" | "lineDog" | "xiaoJiMao";
+
+export type PetAppearanceId = BuiltInPetAppearanceId | "custom";
 
 export type PetFacing = "left" | "right";
 
@@ -20,6 +22,17 @@ export type PetState =
   | "sad"
   | "sleeping";
 
+export type CustomPetAsset = {
+  relativePath: string;
+  originalName: string;
+  updatedAt: number;
+};
+
+export type CustomPetAppearance = {
+  name: string;
+  assets: Partial<Record<PetState, CustomPetAsset>>;
+};
+
 export type BubbleAction = {
   id: string;
   label: string;
@@ -38,6 +51,7 @@ export type BlockingMode = "break" | "breakRun" | "hydration" | "focusWarning" |
 export type Settings = {
   language: Language;
   petAppearanceId: PetAppearanceId;
+  customPetAppearance: CustomPetAppearance | null;
   onboardingDismissed: boolean;
   launchAtLoginEnabled: boolean;
   checkUpdatesOnLaunchEnabled: boolean;

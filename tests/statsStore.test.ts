@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createEmptyStats } from "../src/shared/constants";
+import { createEmptyStats, todayKey } from "../src/shared/constants";
 import {
   getCurrentStats,
   getStatsHistory,
@@ -76,7 +76,8 @@ export const tests = [
   {
     name: "updateCurrentStats persists the mutation",
     run(): void {
-      const store = new MemoryStatsStore(createEmptyStats("2026-05-05"));
+      const today = todayKey();
+      const store = new MemoryStatsStore(createEmptyStats(today));
 
       const stats = updateCurrentStats(store, (current) => ({
         ...current,
@@ -85,7 +86,7 @@ export const tests = [
 
       assert.equal(stats.watersLogged, 1);
       assert.equal(store.stats.watersLogged, 1);
-      assert.equal(getStatsHistory(store)["2026-05-05"].watersLogged, 1);
+      assert.equal(getStatsHistory(store)[today].watersLogged, 1);
     }
   },
   {

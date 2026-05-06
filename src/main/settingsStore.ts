@@ -1,6 +1,10 @@
 import { DEFAULT_SETTINGS } from "../shared/constants";
 import { resolveLanguage } from "../shared/i18n";
-import { resolvePetAppearanceId } from "../shared/petAppearances";
+import {
+  hasRequiredCustomPetAssets,
+  normalizeCustomPetAppearance,
+  resolvePetAppearanceId
+} from "../shared/petAppearances";
 import type { Settings } from "../shared/types";
 
 export type SettingsStore = {
@@ -8,11 +12,18 @@ export type SettingsStore = {
 };
 
 export function normalizeSettings(stored: Partial<Settings> = {}): Settings {
+  const customPetAppearance = normalizeCustomPetAppearance(stored.customPetAppearance);
+  const petAppearanceId = resolvePetAppearanceId(stored.petAppearanceId ?? DEFAULT_SETTINGS.petAppearanceId);
+
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
     language: resolveLanguage(stored.language ?? DEFAULT_SETTINGS.language),
-    petAppearanceId: resolvePetAppearanceId(stored.petAppearanceId ?? DEFAULT_SETTINGS.petAppearanceId)
+    petAppearanceId:
+      petAppearanceId === "custom" && !hasRequiredCustomPetAssets(customPetAppearance)
+        ? DEFAULT_SETTINGS.petAppearanceId
+        : petAppearanceId,
+    customPetAppearance
   };
 }
 

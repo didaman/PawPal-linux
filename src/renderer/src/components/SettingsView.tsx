@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import type { JSX, ReactNode } from "react";
+import type { DragEvent, JSX, ReactNode } from "react";
 import { i18n, LANGUAGE_OPTIONS, resolveLanguage } from "../../../shared/i18n";
-import { petAppearanceOptions, resolvePetAppearanceId } from "../../../shared/petAppearances";
+import {
+  hasRequiredCustomPetAssets,
+  PET_STATE_ORDER,
+  petAppearanceOptions,
+  REQUIRED_CUSTOM_PET_STATES,
+  resolveBuiltInPetAppearanceId,
+  resolvePetAppearanceId
+} from "../../../shared/petAppearances";
 import type {
+  BuiltInPetAppearanceId,
+  CustomPetAppearance,
+  CustomPetAsset,
   DemoTrigger,
-  PetAppearanceId,
+  PetState,
   Settings,
   UpdateCheckResult
 } from "../../../shared/types";
@@ -221,25 +231,78 @@ function formatUpdateStatus(updateCheck: UpdateCheckResult, labels: SettingsCopy
   return labels.updateIdle;
 }
 
+function updateCustomPetAsset(
+  customPetAppearance: CustomPetAppearance | null,
+  state: PetState,
+  asset: CustomPetAsset,
+  name: string
+): CustomPetAppearance {
+  return {
+    name: customPetAppearance?.name ?? name,
+    assets: {
+      ...customPetAppearance?.assets,
+      [state]: asset
+    }
+  };
+}
+
+function removeCustomPetState(
+  customPetAppearance: CustomPetAppearance | null,
+  state: PetState,
+  name: string
+): CustomPetAppearance | null {
+  if (!customPetAppearance) return null;
+  const { [state]: _removed, ...assets } = customPetAppearance.assets;
+  if (Object.keys(assets).length === 0) return null;
+  return {
+    name: customPetAppearance.name || name,
+    assets
+  };
+}
+
+function customPetStateKind(state: PetState, labels: SettingsCopy): string {
+  return REQUIRED_CUSTOM_PET_STATES.includes(state)
+    ? labels.customPetRequired
+    : labels.customPetOptional;
+}
+
+function customPetStateKindClass(state: PetState): string {
+  return REQUIRED_CUSTOM_PET_STATES.includes(state) ? " is-required" : "";
+}
+
+function customPetAssetPreviewSrc(asset: CustomPetAsset): string {
+  return new URL(window.pawpal.assetUrl(asset.relativePath)).href;
+}
+
 export function SettingsView(): JSX.Element {
   const snapshot = useSnapshot();
   const { settings, stats, updateCheck } = snapshot;
   const [draft, setDraft] = useState(settings);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [customEditorOpen, setCustomEditorOpen] = useState(settings.petAppearanceId === "custom");
   const now = useNow();
   const savedSettingsKey = JSON.stringify(settings);
   const language = resolveLanguage(draft.language);
   const labels = i18n(language).settings;
+  const customPetReady = hasRequiredCustomPetAssets(draft.customPetAppearance);
 
   const petAvatar = useMemo(
-    () => getPetAsset(resolvePetAppearanceId(draft.petAppearanceId), "happy"),
-    [draft.petAppearanceId]
+    () =>
+      getPetAsset(
+        resolvePetAppearanceId(draft.petAppearanceId),
+        "happy",
+        0,
+        0,
+        draft.customPetAppearance
+      ),
+    [draft.customPetAppearance, draft.petAppearanceId]
   );
 
   useEffect(() => {
     setDraft(settings);
     setSettingsDirty(false);
+    if (settings.petAppearanceId === "custom") setCustomEditorOpen(true);
   }, [savedSettingsKey, settings]);
 
   useEffect(() => {
@@ -258,6 +321,48 @@ export function SettingsView(): JSX.Element {
 
   async function checkForUpdates(): Promise<void> {
     await window.pawpal.checkForUpdates();
+  }
+
+  async function uploadCustomPetAsset(state: PetState): Promise<void> {
+    const asset = await window.pawpal.selectCustomPetAsset(state);
+    if (!asset) return;
+    applyCustomPetAsset(state, asset);
+  }
+
+  async function uploadDroppedCustomPetAsset(state: PetState, file: File): Promise<void> {
+    if (!file.name.toLowerCase().endsWith(".gif")) return;
+    const sourcePath = window.pawpal.pathForFile(file);
+    if (!sourcePath) return;
+    const asset = await window.pawpal.importCustomPetAsset(state, sourcePath);
+    if (!asset) return;
+    applyCustomPetAsset(state, asset);
+  }
+
+  function applyCustomPetAsset(state: PetState, asset: CustomPetAsset): void {
+    setCustomEditorOpen(true);
+    const customPetAppearance = updateCustomPetAsset(
+      draft.customPetAppearance,
+      state,
+      asset,
+      labels.customPet
+    );
+    updateDraft({
+      customPetAppearance,
+      petAppearanceId: hasRequiredCustomPetAssets(customPetAppearance)
+        ? "custom"
+        : draft.petAppearanceId
+    });
+  }
+
+  function removeCustomPetAsset(state: PetState): void {
+    const customPetAppearance = removeCustomPetState(draft.customPetAppearance, state, labels.customPet);
+    updateDraft({
+      customPetAppearance,
+      petAppearanceId:
+        draft.petAppearanceId === "custom" && !hasRequiredCustomPetAssets(customPetAppearance)
+          ? "lineDog"
+          : draft.petAppearanceId
+    });
   }
 
   return (
@@ -312,14 +417,41 @@ export function SettingsView(): JSX.Element {
                 key={option.value}
                 appearanceId={option.value}
                 label={option.label}
-                selected={resolvePetAppearanceId(draft.petAppearanceId) === option.value}
-                onSelect={() =>
-                  updateDraft({ petAppearanceId: resolvePetAppearanceId(option.value) })
+                selected={
+                  !customEditorOpen &&
+                  draft.petAppearanceId !== "custom" &&
+                  resolveBuiltInPetAppearanceId(draft.petAppearanceId) === option.value
                 }
+                onSelect={() => {
+                  setCustomEditorOpen(false);
+                  updateDraft({ petAppearanceId: resolvePetAppearanceId(option.value) });
+                }}
               />
             ))}
+            <PetCard
+              label={labels.customPet}
+              previewSrc={
+                customPetReady
+                  ? getPetAsset("custom", "idle", 0, 0, draft.customPetAppearance).src
+                  : undefined
+              }
+              selected={customEditorOpen || draft.petAppearanceId === "custom"}
+              onSelect={() => {
+                setCustomEditorOpen(true);
+                if (customPetReady) updateDraft({ petAppearanceId: "custom" });
+              }}
+            />
           </div>
         </div>
+        {customEditorOpen ? (
+          <CustomPetEditor
+            customPetAppearance={draft.customPetAppearance}
+            labels={labels}
+            onDrop={uploadDroppedCustomPetAsset}
+            onRemove={removeCustomPetAsset}
+            onUpload={(state) => void uploadCustomPetAsset(state)}
+          />
+        ) : null}
       </section>
 
       <section className="prefs__group">
@@ -625,28 +757,135 @@ export function SettingsView(): JSX.Element {
 function PetCard({
   appearanceId,
   label,
+  previewSrc,
   selected,
+  disabled = false,
   onSelect
 }: {
-  appearanceId: PetAppearanceId;
+  appearanceId?: BuiltInPetAppearanceId;
   label: string;
+  previewSrc?: string;
   selected: boolean;
+  disabled?: boolean;
   onSelect: () => void;
 }): JSX.Element {
-  const asset = useMemo(() => getPetAsset(appearanceId, "idle"), [appearanceId]);
+  const asset = useMemo(
+    () => (appearanceId ? getPetAsset(appearanceId, "idle") : null),
+    [appearanceId]
+  );
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       className={`pet-card${selected ? " is-selected" : ""}`}
+      disabled={disabled}
       onClick={onSelect}
     >
       <span className="pet-card__preview">
-        <img src={asset.src} alt="" />
+        {previewSrc || asset ? <img src={previewSrc ?? asset?.src} alt="" /> : <span>+</span>}
       </span>
       <span className="pet-card__name">{label}</span>
     </button>
+  );
+}
+
+function CustomPetEditor({
+  customPetAppearance,
+  labels,
+  onDrop,
+  onUpload,
+  onRemove
+}: {
+  customPetAppearance: CustomPetAppearance | null;
+  labels: SettingsCopy;
+  onDrop: (state: PetState, file: File) => void;
+  onUpload: (state: PetState) => void;
+  onRemove: (state: PetState) => void;
+}): JSX.Element {
+  function allowGifDrop(event: DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>, state: PetState): void {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    onDrop(state, file);
+  }
+
+  return (
+    <div className="custom-pet">
+      <div className="custom-pet__head">
+        <span className="pref-block__label">{labels.customPetAssets}</span>
+        <span className="custom-pet__status">
+          {hasRequiredCustomPetAssets(customPetAppearance)
+            ? labels.customPetReady
+            : labels.customPetMissingRequired}
+        </span>
+      </div>
+      <div className="custom-pet__grid">
+        {PET_STATE_ORDER.map((state) => {
+          const reference = getPetAsset("lineDog", state);
+          const customAsset = customPetAppearance?.assets[state] ?? null;
+          const customPreview = customAsset ? customPetAssetPreviewSrc(customAsset) : null;
+          return (
+            <div className="custom-pet-slot" key={state}>
+              <div className="custom-pet-slot__meta">
+                <span className="custom-pet-slot__state">{labels.petStates[state]}</span>
+                <span className="custom-pet-slot__description">
+                  {labels.petStateDescriptions[state]}
+                </span>
+                <span className={`custom-pet-slot__kind${customPetStateKindClass(state)}`}>
+                  {customPetStateKind(state, labels)}
+                </span>
+              </div>
+              <div className="custom-pet-slot__media">
+                <div className="custom-pet-slot__preview">
+                  <span className="custom-pet-slot__badge">{labels.referenceAsset}</span>
+                  <img src={reference.src} alt="" />
+                </div>
+                <div
+                  className={`custom-pet-slot__preview custom-pet-slot__dropzone${
+                    customPreview ? "" : " is-empty"
+                  }`}
+                  onDragOver={allowGifDrop}
+                  onDrop={(event) => handleDrop(event, state)}
+                >
+                  {customPreview ? <img src={customPreview} alt="" /> : <strong>+</strong>}
+                  {!customAsset ? (
+                    <button
+                      type="button"
+                      className="pref-button custom-pet-slot__upload"
+                      onClick={() => onUpload(state)}
+                    >
+                      {labels.uploadGif}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="custom-pet-slot__actions">
+                {customAsset ? (
+                  <>
+                    <button type="button" className="pref-button" onClick={() => onUpload(state)}>
+                      {labels.replaceGif}
+                    </button>
+                    <button
+                      type="button"
+                      className="pref-button"
+                      onClick={() => onRemove(state)}
+                    >
+                      {labels.removeGif}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

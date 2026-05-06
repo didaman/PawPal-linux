@@ -64,7 +64,8 @@ export function PetView(): JSX.Element {
   const altText = `PawPal ${state}`;
   const facingClass = snapshot.petFacing === "left" ? "facing-left" : "facing-right";
   const appearanceId = snapshot.settings.petAppearanceId;
-  const asset = getPetAsset(appearanceId, state, assetVariant, assetReplayKey);
+  const customAppearance = snapshot.settings.customPetAppearance;
+  const asset = getPetAsset(appearanceId, state, assetVariant, assetReplayKey, customAppearance);
 
   function finishPointerDrag(clicked: boolean): void {
     const drag = dragRef.current;
@@ -109,7 +110,7 @@ export function PetView(): JSX.Element {
   }
 
   useEffect(() => {
-    const variantCount = getPetAssetVariantCount(appearanceId, state);
+    const variantCount = getPetAssetVariantCount(appearanceId, state, customAppearance);
     setAssetVariant(randomVariant(variantCount));
     setAssetReplayKey(0);
     if (!CONTINUOUS_ASSET_STATES.has(state) || variantCount <= 1) return;
@@ -117,7 +118,7 @@ export function PetView(): JSX.Element {
       setAssetVariant((current) => randomVariant(variantCount, current));
     }, CONTINUOUS_ASSET_ROTATION_MS);
     return () => window.clearInterval(timer);
-  }, [appearanceId, state, stateSignal]);
+  }, [appearanceId, customAppearance, state, stateSignal]);
 
   useEffect(() => {
     if (!asset.replayIntervalMs) return;

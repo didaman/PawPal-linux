@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  getCustomPetAssetDefinition,
   getPetAssetDefinition,
+  hasRequiredCustomPetAssets,
   petAppearanceOptions,
   resolvePetAppearanceId
 } from "../src/shared/petAppearances";
-import type { PetAppearanceId, PetState } from "../src/shared/types";
+import type { CustomPetAppearance, PetAppearanceId, PetState } from "../src/shared/types";
 
 const petStates: PetState[] = [
   "idle",
@@ -48,6 +50,27 @@ export const tests = [
     name: "resolvePetAppearanceId accepts Xiao Ji Mao",
     run(): void {
       assert.equal(resolvePetAppearanceId("xiaoJiMao"), "xiaoJiMao");
+    }
+  },
+  {
+    name: "custom pet assets require idle and fall back to idle for missing states",
+    run(): void {
+      const custom: CustomPetAppearance = {
+        name: "Custom",
+        assets: {
+          idle: {
+            relativePath: "custom_pet_assets/idle/idle.gif",
+            originalName: "idle.gif",
+            updatedAt: 1
+          }
+        }
+      };
+
+      assert.equal(hasRequiredCustomPetAssets(custom), true);
+      assert.deepEqual(getCustomPetAssetDefinition(custom, "focusAlert"), {
+        path: "custom_pet_assets/idle/idle.gif",
+        isPlaceholder: true
+      });
     }
   },
   {
