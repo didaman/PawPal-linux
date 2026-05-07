@@ -374,29 +374,39 @@ textarea {
 }
 
 .prefs__group {
-  padding: 14px 0 8px;
+  column-gap: 14px;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  padding: 18px 0 10px;
 }
 
 .prefs__group + .prefs__group {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .prefs__group--quiet {
+  display: block;
   padding-bottom: 14px;
 }
 
 .prefs__group-title {
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  margin: 10px 0 0;
   text-transform: uppercase;
+}
+
+.prefs__group > :not(.prefs__group-title) {
+  grid-column: 2;
 }
 
 .pref-row {
   align-items: center;
-  background: rgba(60, 47, 28, 0.025);
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid transparent;
   border-radius: 8px;
   display: flex;
   gap: 16px;
@@ -406,7 +416,7 @@ textarea {
 }
 
 .pref-row + .pref-row {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .pref-row__label {
@@ -633,7 +643,15 @@ textarea {
 }
 
 .pref-block {
-  padding: 4px 0;
+  background: rgba(255, 255, 255, 0.34);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.pref-row + .pref-block,
+.pref-block + .pref-row,
+.pref-block + .pref-block {
+  margin-top: 6px;
 }
 
 .pref-block__label {
@@ -711,7 +729,7 @@ textarea {
 .custom-pet {
   display: grid;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .custom-pet__head {
@@ -1134,6 +1152,14 @@ textarea {
 @media (max-width: 640px) {
   .prefs {
     padding: 24px 20px 40px;
+  }
+
+  .prefs__group {
+    display: block;
+  }
+
+  .prefs__group-title {
+    margin: 0 0 10px;
   }
 
   .prefs__stats {
