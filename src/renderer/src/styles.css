@@ -374,8 +374,11 @@ textarea {
 }
 
 .prefs__group {
-  border-top: 1px solid var(--rule);
-  padding: 18px 0 6px;
+  padding: 14px 0 8px;
+}
+
+.prefs__group + .prefs__group {
+  margin-top: 10px;
 }
 
 .prefs__group--quiet {
@@ -384,24 +387,26 @@ textarea {
 
 .prefs__group-title {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  margin: 0 0 8px;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
   text-transform: uppercase;
 }
 
 .pref-row {
   align-items: center;
+  background: rgba(60, 47, 28, 0.025);
+  border-radius: 8px;
   display: flex;
   gap: 16px;
   justify-content: space-between;
   min-height: 36px;
-  padding: 8px 0;
+  padding: 10px 12px;
 }
 
 .pref-row + .pref-row {
-  border-top: 1px solid var(--rule);
+  margin-top: 6px;
 }
 
 .pref-row__label {
@@ -472,6 +477,7 @@ textarea {
   display: inline-flex;
   height: 28px;
   overflow: hidden;
+  width: 168px;
 }
 
 .pref-stepper__btn {
@@ -479,10 +485,11 @@ textarea {
   border: 0;
   color: var(--ink-soft);
   cursor: pointer;
+  flex: 0 0 36px;
   font-size: 14px;
   height: 100%;
   line-height: 1;
-  padding: 0 8px;
+  padding: 0;
 }
 
 .pref-stepper__btn:hover:not(:disabled) {
@@ -502,12 +509,13 @@ textarea {
   border-left: 1px solid var(--rule);
   border-right: 1px solid var(--rule);
   color: var(--ink);
+  flex: 0 0 54px;
   font-variant-numeric: tabular-nums;
   height: 100%;
   outline: 0;
-  padding: 0 6px;
+  padding: 0;
   text-align: center;
-  width: 44px;
+  width: 54px;
 }
 
 .pref-stepper input::-webkit-inner-spin-button,
@@ -517,9 +525,15 @@ textarea {
 }
 
 .pref-stepper__unit {
+  align-items: center;
   color: var(--ink-faint);
+  display: inline-flex;
+  flex: 1 1 auto;
   font-size: 11.5px;
-  padding: 0 8px;
+  height: 100%;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
 }
 
 .pref-select {
@@ -619,8 +633,7 @@ textarea {
 }
 
 .pref-block {
-  border-top: 1px solid var(--rule);
-  padding: 10px 0 4px;
+  padding: 4px 0;
 }
 
 .pref-block__label {
