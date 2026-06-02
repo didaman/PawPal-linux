@@ -92,8 +92,8 @@ export const I18N = {
       focusEnd: "结束专注"
     },
     menu: {
-      showDog: "显示小狗",
-      hideDog: "隐藏小狗",
+      showDog: "显示宠物",
+      hideDog: "隐藏宠物",
       startFocusMode: "开始专注模式",
       stopFocusMode: "停止专注模式",
       demoBreakReminder: "演示：休息提醒",
@@ -330,8 +330,8 @@ export const I18N = {
       focusEnd: "End Focus"
     },
     menu: {
-      showDog: "Show Dog",
-      hideDog: "Hide Dog",
+      showDog: "Show Pet",
+      hideDog: "Hide Pet",
       startFocusMode: "Start Focus Mode",
       stopFocusMode: "Stop Focus Mode",
       demoBreakReminder: "Demo: Break Reminder",
