@@ -26,7 +26,15 @@ return frontApp & linefeed & frontWindow
 `;
 }
 
+export function supportsActiveWindowReading(): boolean {
+  return process.platform === "darwin";
+}
+
 export function readActiveWindow(): Promise<ActiveWindowInfo> {
+  if (!supportsActiveWindowReading()) {
+    return Promise.reject(new Error("Active-window detection is not supported on this platform."));
+  }
+
   return new Promise((resolve, reject) => {
     execFile("/usr/bin/osascript", ["-e", activeWindowScript()], { timeout: 2500 }, (error, stdout) => {
       if (error) {

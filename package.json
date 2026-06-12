@@ -1,6 +1,6 @@
 {
   "name": "pawpal",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "A tiny desktop dog that helps you pause before you burn out.",
   "author": "zebangeth",
   "license": "MIT",
@@ -12,9 +12,10 @@
     "build": "tsc --noEmit && electron-vite build",
     "test": "node scripts/test.mjs",
     "typecheck": "tsc --noEmit",
-    "dist": "tsc --noEmit && electron-vite build && electron-builder --mac --win",
+    "dist": "tsc --noEmit && electron-vite build && electron-builder --mac --win --linux",
     "dist:mac": "tsc --noEmit && electron-vite build && electron-builder --mac",
-    "dist:win": "tsc --noEmit && electron-vite build && electron-builder --win"
+    "dist:win": "tsc --noEmit && electron-vite build && electron-builder --win",
+    "dist:linux": "tsc --noEmit && electron-vite build && electron-builder --linux"
   },
   "build": {
     "appId": "com.pawpal.app",
@@ -35,6 +36,16 @@
         { "target": "nsis", "arch": ["x64"] }
       ],
       "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "category": "Utility",
+      "maintainer": "zebangeth <zebangeth@users.noreply.github.com>",
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

@@ -54,13 +54,19 @@ import {
   visibleWindowBounds
 } from "./displayPosition";
 import type { DisplayBounds, SavedWindowPosition } from "./displayPosition";
-import { classifyDistraction, isPermissionError, readActiveWindow } from "./distraction";
+import {
+  classifyDistraction,
+  isPermissionError,
+  readActiveWindow,
+  supportsActiveWindowReading
+} from "./distraction";
 import { applyLaunchAtLoginPreference, getLaunchAtLoginState } from "./loginItem";
 import {
   buildApplicationMenuTemplate,
   buildPetContextMenuTemplate,
   buildTrayMenuTemplate
 } from "./menus";
+import { supportsForwardedIgnoredMouseEvents } from "./mouseEvents";
 import { createTrayImage } from "./trayIcon";
 import { getStoredSettings, normalizeSettings } from "./settingsStore";
 import {
@@ -140,7 +146,14 @@ let distractionStatus: DistractionStatus = {
 let updateCheck: UpdateCheckResult = createInitialUpdateCheck();
 
 function setPetMouseInteractive(interactive: boolean): void {
-  if (!petWindow || petWindow.isDestroyed() || petMouseInteractive === interactive) return;
+  if (!petWindow || petWindow.isDestroyed()) return;
+  if (!supportsForwardedIgnoredMouseEvents()) {
+    // Linux does not reliably forward mousemove while ignored, so keep core pet controls usable.
+    petMouseInteractive = true;
+    petWindow.setIgnoreMouseEvents(false);
+    return;
+  }
+  if (petMouseInteractive === interactive) return;
   petMouseInteractive = interactive;
   petWindow.setIgnoreMouseEvents(!interactive, { forward: true });
 }
@@ -854,12 +867,13 @@ function scheduleDistractionDetection(): void {
     return;
   }
 
+  const supportsDistractionDetection = supportsActiveWindowReading();
   setDistractionStatus({
-    state: process.platform === "darwin" ? "watching" : "unsupported",
-    error: process.platform === "darwin" ? null : text().system.unsupportedDistraction
+    state: supportsDistractionDetection ? "watching" : "unsupported",
+    error: supportsDistractionDetection ? null : text().system.unsupportedDistraction
   });
 
-  if (process.platform !== "darwin") return;
+  if (!supportsDistractionDetection) return;
 
   const firstCheckDelay = focusActive ? Math.max(0, settings.distractionGraceSeconds * 1000) : 0;
   distractionStartupTimer = setTimeout(() => {
