@@ -37,6 +37,7 @@ import type {
 } from "../shared/types";
 import {
   APP_NAME,
+  APP_ICON_PATH,
   BREAK_RUN_TICK_MS,
   DISTRACTION_CHECK_INTERVAL_MS,
   DISTRACTION_WARNING_COOLDOWN_MS,
@@ -95,6 +96,11 @@ type PetPosition = {
 };
 
 app.setName(APP_NAME);
+
+const WINDOW_ICON_OPTIONS =
+  process.platform === "darwin"
+    ? {}
+    : ({ icon: APP_ICON_PATH } satisfies Electron.BrowserWindowConstructorOptions);
 
 const store = new Store<StoreSchema>({
   name: STORE_NAME,
@@ -406,6 +412,7 @@ function createPetWindow(): void {
     hasShadow: false,
     backgroundColor: "#00000000",
     alwaysOnTop: true,
+    ...WINDOW_ICON_OPTIONS,
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -477,6 +484,7 @@ function createSettingsWindow(): void {
     minHeight: 400,
     show: false,
     backgroundColor: "#faf6ee",
+    ...WINDOW_ICON_OPTIONS,
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 14, y: 14 } }
       : {}),

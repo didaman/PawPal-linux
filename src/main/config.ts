@@ -22,6 +22,9 @@ export const SETTINGS_WINDOW = {
 export const PRELOAD_PATH = join(__dirname, "../preload/index.cjs");
 export const RENDERER_HTML_PATH = join(__dirname, "../renderer/index.html");
 export const IS_DEV = Boolean(process.env.ELECTRON_RENDERER_URL);
+export const APP_ICON_PATH = IS_DEV
+  ? join(__dirname, "../../build/icon.png")
+  : join(process.resourcesPath, "icon.png");
 
 export const DISTRACTION_CHECK_INTERVAL_MS = 3000;
 export const DISTRACTION_WARNING_COOLDOWN_MS = 60_000;

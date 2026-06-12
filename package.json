@@ -1,6 +1,6 @@
 {
   "name": "pawpal",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A tiny desktop dog that helps you pause before you burn out.",
   "author": "zebangeth",
   "license": "MIT",
@@ -44,7 +44,7 @@
       ],
       "category": "Utility",
       "maintainer": "zebangeth <zebangeth@users.noreply.github.com>",
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
@@ -69,6 +69,10 @@
         "from": "pet_assets",
         "to": "pet_assets",
         "filter": ["**/*", "!.DS_Store"]
+      },
+      {
+        "from": "build/icons/512x512.png",
+        "to": "icon.png"
       }
     ]
   },
