@@ -9,6 +9,7 @@ import {
   Menu,
   nativeTheme,
   net,
+  powerMonitor,
   protocol,
   screen,
   shell,
@@ -17,7 +18,8 @@ import {
 import Store from "electron-store";
 import {
   createEmptyStats,
-  DEFAULT_SETTINGS
+  DEFAULT_SETTINGS,
+  todayKey
 } from "../shared/constants";
 import { i18n, pick } from "../shared/i18n";
 import { PET_STATE_ORDER } from "../shared/petAppearances";
@@ -49,6 +51,11 @@ import {
   SETTINGS_WINDOW,
   STORE_NAME
 } from "./config";
+import {
+  clearExpiredDailyState,
+  isBreakMutedToday,
+  nextLocalMidnightDelayMs
+} from "./dailyState";
 import {
   initialWindowBounds,
   savedPositionFromBounds,
@@ -88,6 +95,7 @@ type StoreSchema = {
   statsHistory: StatsHistory;
   petPosition?: SavedWindowPosition;
   petHiddenByUser?: boolean;
+  breakMutedDate?: string;
 };
 
 type PetPosition = {
@@ -127,6 +135,7 @@ let hydrationTimer: NodeJS.Timeout | null = null;
 let focusTimer: NodeJS.Timeout | null = null;
 let distractionTimer: NodeJS.Timeout | null = null;
 let distractionStartupTimer: NodeJS.Timeout | null = null;
+let dailyRolloverTimer: NodeJS.Timeout | null = null;
 let displayChangeTimer: NodeJS.Timeout | null = null;
 let breakDueAt: number | null = null;
 let hydrationDueAt: number | null = null;
@@ -137,7 +146,6 @@ let dragSafetyTimer: NodeJS.Timeout | null = null;
 let breakRunVelocity: PetPosition = { x: 0, y: 0 };
 let breakRunFormatter: ((seconds: number) => string) | null = null;
 let nextBreakRunTurnAt = 0;
-let breakMutedToday = false;
 let dragOffset: PetPosition = { x: 0, y: 0 };
 let petMouseInteractive = true;
 let distractionStatus: DistractionStatus = {
@@ -200,6 +208,53 @@ function updateStats(mutator: (stats: TodayStats) => TodayStats): void {
   sendToAll("stats:updated", next);
 }
 
+function getBreakMutedDate(): string | undefined {
+  return store.get("breakMutedDate");
+}
+
+function setBreakMutedDate(date: string): void {
+  store.set("breakMutedDate", date);
+}
+
+function clearBreakMutedDate(): void {
+  store.delete("breakMutedDate");
+}
+
+function isBreakReminderMuted(date = todayKey()): boolean {
+  return isBreakMutedToday({ breakMutedDate: getBreakMutedDate() }, date);
+}
+
+function syncDailyState(options: { rescheduleBreakIfUnmuted?: boolean } = {}): void {
+  const date = todayKey();
+  const previousBreakMutedDate = getBreakMutedDate();
+  const nextDailyState = clearExpiredDailyState({ breakMutedDate: previousBreakMutedDate }, date);
+  const clearedExpiredMute = previousBreakMutedDate !== nextDailyState.breakMutedDate;
+
+  if (clearedExpiredMute) {
+    clearBreakMutedDate();
+  }
+
+  const stats = getCurrentStats(store, date);
+  sendToAll("stats:updated", stats);
+  publishSnapshot();
+
+  if (clearedExpiredMute && options.rescheduleBreakIfUnmuted && getSettings().breakReminderEnabled) {
+    scheduleBreakReminderTimer();
+  }
+}
+
+function scheduleDailyRollover(): void {
+  if (dailyRolloverTimer) {
+    clearTimeout(dailyRolloverTimer);
+    dailyRolloverTimer = null;
+  }
+
+  dailyRolloverTimer = setTimeout(() => {
+    syncDailyState({ rescheduleBreakIfUnmuted: true });
+    scheduleDailyRollover();
+  }, nextLocalMidnightDelayMs());
+}
+
 function isCustomPetState(state: unknown): state is PetState {
   return typeof state === "string" && PET_STATE_ORDER.includes(state as PetState);
 }
@@ -226,9 +281,11 @@ async function importCustomPetAsset(state: PetState, sourcePath: string): Promis
 }
 
 function resetTodayStats(): void {
-  breakMutedToday = false;
+  clearBreakMutedDate();
   const reset = resetCurrentStats(store);
   sendToAll("stats:updated", reset);
+  scheduleBreakReminderTimer();
+  publishSnapshot();
 }
 
 async function selectCustomPetAsset(state: PetState): Promise<CustomPetAsset | null> {
@@ -758,7 +815,7 @@ function clearHydrationReminderTimer(): void {
 function scheduleBreakReminderTimer(delayMs?: number): void {
   clearBreakReminderTimer();
   const settings = getSettings();
-  if (!settings.breakReminderEnabled || breakMutedToday) {
+  if (!settings.breakReminderEnabled || isBreakReminderMuted()) {
     breakDueAt = null;
     publishSnapshot();
     return;
@@ -800,7 +857,7 @@ function showOverdueReminder(): boolean {
 
   const now = Date.now();
   const settings = getSettings();
-  if (settings.breakReminderEnabled && !breakMutedToday && breakDueAt !== null && breakDueAt <= now) {
+  if (settings.breakReminderEnabled && !isBreakReminderMuted() && breakDueAt !== null && breakDueAt <= now) {
     triggerBreakReminder(false);
     return true;
   }
@@ -957,7 +1014,7 @@ async function checkForUpdates(options: { notifyAvailable?: boolean } = {}): Pro
 function triggerBreakReminder(fromDemo: boolean): void {
   if (!fromDemo) {
     breakTimer = null;
-    if (breakMutedToday) {
+    if (isBreakReminderMuted()) {
       breakDueAt = null;
       publishSnapshot();
       return;
@@ -1119,7 +1176,7 @@ function handleBubbleAction(actionId: string): void {
     return;
   }
   if (actionId === "break:mute") {
-    breakMutedToday = true;
+    setBreakMutedDate(todayKey());
     breakDueAt = null;
     blockingMode = null;
     sendToAll("app:snapshot", snapshot());
@@ -1231,12 +1288,13 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(assetPath).href);
   });
 
-  getStats();
+  syncDailyState();
   registerIpc();
   createPetWindow();
   createTray();
   registerDisplayChangeHandlers();
   scheduleReminderTimers();
+  scheduleDailyRollover();
   scheduleDistractionDetection();
   if (IS_DEV) {
     createSettingsWindow();
@@ -1247,6 +1305,11 @@ app.whenReady().then(() => {
 
   app.on("activate", () => {
     if (!petWindow) createPetWindow();
+  });
+
+  powerMonitor.on("resume", () => {
+    syncDailyState({ rescheduleBreakIfUnmuted: true });
+    scheduleDailyRollover();
   });
 });
 
@@ -1260,6 +1323,7 @@ app.on("before-quit", () => {
     focusTimer,
     distractionTimer,
     distractionStartupTimer,
+    dailyRolloverTimer,
     displayChangeTimer,
     bubbleTimer,
     dragTimer,
